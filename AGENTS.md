@@ -34,6 +34,45 @@
 | `Dictionary/DictionaryService.swift` | Protocol + mock + models |
 | `Anki/AnkiConnectService.swift` | AnkiConnect HTTP client |
 
+## QA Checklist
+
+Run through these manually after any change to trigger/capture/panel/settings logic (~2 min).
+
+### Settings window
+
+- [ ] **Persistence:** Change trigger method → Save → close settings → reopen → value persisted
+- [ ] **Discard on cancel:** Change trigger method → Cancel → reopen → reverted to last saved
+- [ ] **Discard on close:** Change trigger method → click X or click outside → reopen → reverted to last saved
+- [ ] **Hotkey remap persists:** Change key combo → Save → reopen → new combo displayed
+- [ ] **Layout stable:** Switch between "On key combination" and "On text selection" — no UI jumping
+- [ ] **Hotkey row shows/hides:** Key combination row appears only when "On key combination" is active
+
+### Hotkey trigger mode
+
+- [ ] **Combo works:** Press the configured key combination → floating panel opens with selected text
+- [ ] **Combo works after remap:** Change key combo in settings → Save → new combo works, old combo doesn't
+- [ ] **No text selected:** Press hotkey with no text selected in any app → panel does NOT show
+
+### Text-selection trigger mode
+
+- [ ] **Select text → panel opens:** Select text in another app, release mouse → panel opens with captured text
+- [ ] **Double-click → panel opens:** Double-click a word in another app → panel opens
+- [ ] **Different text triggers again:** Select "hello" → panel shows → deselect → select "world" → panel shows again
+- [ ] **Same text does NOT reopen:** Select "hello" → panel shows → click outside to close → panel does NOT reopen (text still selected)
+
+### Floating panel
+
+- [ ] **Click outside closes:** Panel open → click anywhere outside (another app, desktop) → panel closes immediately
+- [ ] **Close button works:** Click the X button in the panel header → panel closes
+- [ ] **Drag works:** Drag the panel by its content area → panel moves with mouse
+- [ ] **Positions near mouse:** Panel appears centered on the current cursor position
+
+### Menu bar
+
+- [ ] **Settings opens:** Click menu bar icon → Settings... → settings window opens
+- [ ] **Manual capture:** Click menu bar icon → Capture Selected Text → panel opens with selected text
+- [ ] **Quit:** Click menu bar icon → Quit (or Cmd+Q) → app terminates
+
 ## Testing
 
 - No test targets exist. Any new tests should be added as a new target in Xcode.

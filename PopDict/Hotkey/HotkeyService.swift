@@ -12,6 +12,7 @@ final class HotkeyService {
     private let hotKeyID: UInt32 = 1
 
     func register(keyCode: Int = kVK_ANSI_T, modifiers: Int = optionKey | shiftKey, action: @escaping () -> Void) {
+        unregister()
         self.action = action
 
         let hotKeyID = EventHotKeyID(signature: hotKeySignature, id: hotKeyID)
@@ -50,8 +51,19 @@ final class HotkeyService {
         )
     }
 
+    func unregister() {
+        if let ref = hotKeyRef {
+            UnregisterEventHotKey(ref)
+            hotKeyRef = nil
+        }
+        if let ref = eventHandlerRef {
+            RemoveEventHandler(ref)
+            eventHandlerRef = nil
+        }
+        action = nil
+    }
+
     deinit {
-        if let ref = hotKeyRef { UnregisterEventHotKey(ref) }
-        if let ref = eventHandlerRef { RemoveEventHandler(ref) }
+        unregister()
     }
 }

@@ -8,6 +8,8 @@ struct PopDictApp: App {
         MenuBarExtra("PopDict", systemImage: "text.viewfinder") {
             Button("Capture Selected Text") { appDelegate.captureText() }
             Divider()
+            Button("Settings...") { SettingsWindowController.shared.show() }
+            Divider()
             Button("Quit") { NSApplication.shared.terminate(nil) }
                 .keyboardShortcut("q")
         }

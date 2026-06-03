@@ -12,6 +12,7 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     private var panel: NSPanel?
     private var hostingController: NSHostingController<FloatingPanelView>?
+    private var clickOutsideMonitor: Any?
 
     func show(text: String) {
         if panel == nil {
@@ -25,11 +26,14 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
         positionPanelNearMouse(panel)
 
+        startClickOutsideMonitor()
+
         panel.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func hide() {
+        stopClickOutsideMonitor()
         panel?.orderOut(nil)
     }
 
@@ -76,5 +80,19 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     func windowDidResignKey(_ notification: Notification) {
         hide()
+    }
+
+    private func startClickOutsideMonitor() {
+        stopClickOutsideMonitor()
+        clickOutsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            self?.hide()
+        }
+    }
+
+    private func stopClickOutsideMonitor() {
+        if let monitor = clickOutsideMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        clickOutsideMonitor = nil
     }
 }
