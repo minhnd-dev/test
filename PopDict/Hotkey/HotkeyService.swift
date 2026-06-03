@@ -14,7 +14,7 @@ final class HotkeyService {
     func register(keyCode: Int = kVK_ANSI_T, modifiers: Int = optionKey | shiftKey, action: @escaping () -> Void) {
         self.action = action
 
-        var hotKeyID = EventHotKeyID(signature: hotKeySignature, id: hotKeyID)
+        let hotKeyID = EventHotKeyID(signature: hotKeySignature, id: hotKeyID)
         let status = RegisterEventHotKey(
             UInt32(keyCode),
             UInt32(modifiers),

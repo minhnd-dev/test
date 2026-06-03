@@ -1,7 +1,15 @@
 import AppKit
 import SwiftUI
 
+final class DraggablePanel: NSPanel {
+    override func mouseDown(with event: NSEvent) {
+        performDrag(with: event)
+    }
+}
+
 final class FloatingPanelController: NSObject, NSWindowDelegate {
+    static let shared = FloatingPanelController()
+
     private var panel: NSPanel?
     private var hostingController: NSHostingController<FloatingPanelView>?
 
@@ -26,9 +34,9 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
     }
 
     private func createPanel() {
-        let panel = NSPanel(
+        let panel = DraggablePanel(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 200),
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            styleMask: [.borderless, .fullSizeContentView, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -37,8 +45,6 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         panel.level = .floating
         panel.hidesOnDeactivate = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.titlebarAppearsTransparent = true
-        panel.titleVisibility = .hidden
         panel.isReleasedWhenClosed = false
         panel.delegate = self
 
