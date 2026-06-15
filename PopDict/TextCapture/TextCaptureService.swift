@@ -66,7 +66,7 @@ final class TextCaptureService {
         keyDown?.post(tap: .cghidEventTap)
         keyUp?.post(tap: .cghidEventTap)
 
-        Thread.sleep(forTimeInterval: 0.05)
+        Thread.sleep(forTimeInterval: 0.1)
 
         let text = pasteboard.string(forType: .string)
         let pasteboardDidChange = pasteboard.changeCount != originalChangeCount
