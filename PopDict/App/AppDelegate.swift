@@ -48,27 +48,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applyTriggerMethod(SettingsStore.shared.triggerMethod)
     }
 
-    func captureText() {
+    @discardableResult
+    func captureText() -> Bool {
         if !TextCaptureService.shared.isAccessibilityPermissionGranted {
+            print("[AppDelegate] captureText → no AX permission")
             TextCaptureService.shared.requestAccessibilityPermission()
-            return
+            return false
         }
 
         guard let text = TextCaptureService.shared.getSelectedText(), !text.isEmpty else {
+            print("[AppDelegate] captureText → no text (getSelectedText returned nil/empty)")
             lastCapturedText = nil
-            return
+            return false
         }
+        print("[AppDelegate] captureText → raw text: \"\(text)\"")
 
         guard text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
-            return
+            print("[AppDelegate] captureText → whitespace only, skip")
+            return false
         }
 
-        guard !isSelectionInsideOwnApp() else { return }
+        if isSelectionInsideOwnApp() {
+            print("[AppDelegate] captureText → selection inside own app, skip")
+            return false
+        }
 
-        guard text != lastCapturedText else { return }
+        guard text != lastCapturedText else {
+            print("[AppDelegate] captureText → same text as last: \"\(text)\" == \"\(lastCapturedText ?? "")\", skip")
+            return false
+        }
 
+        print("[AppDelegate] captureText → PASS, showing panel")
         lastCapturedText = text
         FloatingPanelController.shared.show(text: text)
+        return true
     }
 
     private func isSelectionInsideOwnApp() -> Bool {
@@ -100,13 +113,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func focusedAppDidChange(_ notification: Notification) {
-        guard SettingsStore.shared.triggerMethod == .textSelection else { return }
+        let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+        print("[AppDelegate] focusedAppDidChange → \(app?.localizedName ?? "?") (PID \(app?.processIdentifier ?? 0))")
+        guard SettingsStore.shared.triggerMethod == .textSelection else {
+            print("[AppDelegate] focusedAppDidChange → ignored (trigger = \(SettingsStore.shared.triggerMethod))")
+            return
+        }
         startTextSelectionMonitoring()
     }
 
     private func startTextSelectionMonitoring() {
-        guard AXIsProcessTrusted() else { return }
+        guard AXIsProcessTrusted() else {
+            print("[AppDelegate] startTextSelectionMonitoring → AX not trusted")
+            return
+        }
         stopTextSelectionMonitoring()
+        startMouseMonitors()
 
         let systemWide = AXUIElementCreateSystemWide()
         var focusedApp: CFTypeRef?
@@ -115,11 +137,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             kAXFocusedApplicationAttribute as CFString,
             &focusedApp
         )
-        guard appResult == .success, let focusedApp else { return }
+        guard appResult == .success, let focusedApp else {
+            print("[AppDelegate] startTextSelectionMonitoring → couldn't get focused app (mouse monitors still active)")
+            return
+        }
 
         let appElement = focusedApp as! AXUIElement
         var pid: pid_t = 0
         AXUIElementGetPid(appElement, &pid)
+        let app = NSRunningApplication(processIdentifier: pid)
+        print("[AppDelegate] startTextSelectionMonitoring → registering on \(app?.localizedName ?? "?") (PID \(pid))")
 
         var observer: AXObserver?
         let createResult = AXObserverCreate(pid, { (_, element, _, refcon) in
@@ -128,7 +155,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             delegate.handleSelectionChanged()
         }, &observer)
 
-        guard createResult == .success, let observer else { return }
+        guard createResult == .success, let observer else {
+            print("[AppDelegate] startTextSelectionMonitoring → AXObserverCreate failed: \(createResult)")
+            return
+        }
 
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         let addResult = AXObserverAddNotification(
@@ -138,7 +168,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             selfPtr
         )
 
-        guard addResult == .success else { return }
+        if addResult != .success {
+            print("[AppDelegate] startTextSelectionMonitoring → AXObserverAddNotification failed: \(addResult)")
+            return
+        }
 
         CFRunLoopAddSource(
             CFRunLoopGetMain(),
@@ -146,8 +179,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .defaultMode
         )
         self.axObserver = observer
-
-        startMouseMonitors()
+        print("[AppDelegate] startTextSelectionMonitoring → observer active")
     }
 
     private func stopTextSelectionMonitoring() {
@@ -170,7 +202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { [weak self] _ in
             guard let self else { return }
             mouseIsDown = false
-            print("[AppDelegate] mouse UP → mouseIsDown = false, tryCapture() in 150ms")
+            print("[AppDelegate] mouse UP → mouseIsDown = false, tryCapture() in 400ms")
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
                 self?.tryCapture()
             }

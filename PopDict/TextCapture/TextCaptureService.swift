@@ -15,9 +15,17 @@ final class TextCaptureService {
 
     func getSelectedText() -> String? {
         if let text = getSelectedTextViaAX(), !text.isEmpty {
+            print("[TextCapture] AX path → \"\(text)\"")
             return text
         }
-        return getSelectedTextViaPasteboard()
+        print("[TextCapture] AX path failed → trying pasteboard")
+        let text = getSelectedTextViaPasteboard()
+        if let text {
+            print("[TextCapture] pasteboard path → \"\(text)\"")
+        } else {
+            print("[TextCapture] pasteboard path → nil")
+        }
+        return text
     }
 
     private func getSelectedTextViaAX() -> String? {
@@ -29,7 +37,10 @@ final class TextCaptureService {
             kAXFocusedApplicationAttribute as CFString,
             &focusedApp
         )
-        guard appResult == .success, let focusedApp else { return nil }
+        guard appResult == .success, let focusedApp else {
+            print("[TextCapture] AX → no focused app")
+            return nil
+        }
 
         let appElement = focusedApp as! AXUIElement
 
@@ -39,7 +50,10 @@ final class TextCaptureService {
             kAXFocusedUIElementAttribute as CFString,
             &focusedElement
         )
-        guard elementResult == .success, let focusedElement else { return nil }
+        guard elementResult == .success, let focusedElement else {
+            print("[TextCapture] AX → no focused element")
+            return nil
+        }
 
         var selectedText: CFTypeRef?
         let textResult = AXUIElementCopyAttributeValue(
@@ -48,6 +62,7 @@ final class TextCaptureService {
             &selectedText
         )
         guard textResult == .success, let text = selectedText as? String, !text.isEmpty else {
+            print("[TextCapture] AX → selectedText failed (result=\(textResult.rawValue))")
             return nil
         }
         return text
@@ -57,26 +72,29 @@ final class TextCaptureService {
         let pasteboard = NSPasteboard.general
         let originalString = pasteboard.string(forType: .string)
         let originalChangeCount = pasteboard.changeCount
+        print("[TextCapture] pasteboard → original changeCount=\(originalChangeCount)")
 
         let source = CGEventSource(stateID: .combinedSessionState)
         let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x08, keyDown: true)
         let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x08, keyDown: false)
         keyDown?.flags = .maskCommand
         keyUp?.flags = .maskCommand
-        keyDown?.post(tap: .cghidEventTap)
-        keyUp?.post(tap: .cghidEventTap)
+        keyDown?.post(tap: .cgAnnotatedSessionEventTap)
+        keyUp?.post(tap: .cgAnnotatedSessionEventTap)
 
-        Thread.sleep(forTimeInterval: 0.1)
+        Thread.sleep(forTimeInterval: 0.15)
 
         let text = pasteboard.string(forType: .string)
-        let pasteboardDidChange = pasteboard.changeCount != originalChangeCount
+        let textChanged = text != originalString
+        print("[TextCapture] pasteboard → after Cmd+C: text=\(text ?? "nil"), changeCount=\(pasteboard.changeCount), textChanged=\(textChanged)")
 
         if let originalString {
             pasteboard.clearContents()
             pasteboard.setString(originalString, forType: .string)
+            print("[TextCapture] pasteboard → restored original: \"\(originalString)\"")
         }
 
-        guard let text, !text.isEmpty, pasteboardDidChange else {
+        guard let text, !text.isEmpty, textChanged else {
             return nil
         }
         return text
